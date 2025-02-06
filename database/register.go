@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/google/uuid"
 	"net/http"
 	"time"
 
@@ -34,7 +35,6 @@ func (u *User) Register(collection *mongo.Collection) error {
 	return nil
 }
 
-// RegisterHandler обрабатывает HTTP-запрос для регистрации пользователя
 func RegisterHandler(collection *mongo.Collection) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -49,17 +49,23 @@ func RegisterHandler(collection *mongo.Collection) http.HandlerFunc {
 			return
 		}
 
+		// Генерация уникального ID для пользователя
+		newUser.UniqueID = uuid.New().String()
+
+		// Проверка обязательных полей
 		if newUser.Username == "" || newUser.Password == "" || newUser.UniqueID == "" {
 			http.Error(w, "имя пользователя, уникальный ID и пароль обязательны", http.StatusBadRequest)
 			return
 		}
 
+		// Регистрация пользователя
 		err = newUser.Register(collection)
 		if err != nil {
 			http.Error(w, "ошибка регистрации: "+err.Error(), http.StatusConflict)
 			return
 		}
 
+		// Успешная регистрация
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(`{"status":"пользователь успешно зарегистрирован"}`))
 	}

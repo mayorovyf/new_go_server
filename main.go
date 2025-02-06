@@ -26,9 +26,16 @@ func main() {
 	// Коллекция пользователей
 	usersCollection := databaseInstance.Collection("users")
 
-	// Установка маршрутов
+	// Коллекция командиров
+	commandersCollection := databaseInstance.Collection("commanders")
+
+	// Установка маршрутов для пользователей
 	http.HandleFunc("/register", database.RegisterHandler(usersCollection))
 	http.HandleFunc("/login", database.LoginHandler(usersCollection))
+
+	// Установка маршрутов для командиров
+	http.HandleFunc("/register_commander", database.RegisterCommanderHandler(commandersCollection))
+	http.HandleFunc("/login_commander", database.LoginCommanderHandler(commandersCollection))
 
 	// Запуск сервера
 	port := os.Getenv("PORT")
