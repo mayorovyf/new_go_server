@@ -1,27 +1,12 @@
 package database
 
-import (
-	"context"
-	"fmt"
-	"time"
-
-	"go.mongodb.org/mongo-driver/mongo"
-)
-
-// User представляет пользователя
+// User представляет пользователя с расширенной информацией
 type User struct {
-	Username string `bson:"username"` // Поля BSON соответствуют структуре MongoDB
-	Password string `bson:"password"`
-}
-
-// Save сохраняет объект пользователя в коллекцию MongoDB
-func (u *User) Save(collection *mongo.Collection) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := collection.InsertOne(ctx, u)
-	if err != nil {
-		return fmt.Errorf("ошибка добавления пользователя в базу данных: %v", err)
-	}
-	return nil
+	FirstName  string `bson:"first_name" json:"first_name"`
+	LastName   string `bson:"last_name" json:"last_name"`
+	MiddleName string `bson:"middle_name" json:"middle_name"`
+	UniqueID   string `bson:"unique_id" json:"unique_id"`
+	Class      string `bson:"class" json:"class"`
+	Username   string `bson:"username" json:"username"`
+	Password   string `bson:"password" json:"password"`
 }
