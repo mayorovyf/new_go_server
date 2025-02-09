@@ -35,31 +35,59 @@ func (u *User) Register(collection *mongo.Collection) error {
 	return nil
 }
 
-func RegisterHandler(collection *mongo.Collection) http.HandlerFunc {
+// RegisterUserHandler обрабатывает HTTP-запрос для регистрации пользователя
+func RegisterUserHandler(usersCollection *mongo.Collection, commandersCollection *mongo.Collection) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "метод не поддерживается", http.StatusMethodNotAllowed)
 			return
 		}
 
-		var newUser User
-		err := json.NewDecoder(r.Body).Decode(&newUser)
+		// Декодируем тело запроса один раз в объединённую структуру
+		var requestData struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+			APIKey   string `json:"api_key"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&requestData)
 		if err != nil {
 			http.Error(w, "не удалось разобрать запрос: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		// Генерация уникального ID для пользователя
-		newUser.UniqueID = uuid.New().String()
-
-		// Проверка обязательных полей
-		if newUser.Username == "" || newUser.Password == "" || newUser.UniqueID == "" {
-			http.Error(w, "имя пользователя, уникальный ID и пароль обязательны", http.StatusBadRequest)
+		// Проверка наличия API-ключа в запросе
+		if requestData.APIKey == "" {
+			http.Error(w, "API ключ обязателен", http.StatusBadRequest)
 			return
 		}
 
-		// Регистрация пользователя
-		err = newUser.Register(collection)
+		// Поиск командира по API-ключу
+		commander, err := findCommanderByAPIKey(commandersCollection, requestData.APIKey)
+		if err != nil {
+			http.Error(w, "ошибка проверки API-ключа: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if commander == nil {
+			http.Error(w, "неверный API-ключ", http.StatusUnauthorized)
+			return
+		}
+
+		// Проверка обязательных полей
+		if requestData.Username == "" || requestData.Password == "" {
+			http.Error(w, "имя пользователя и пароль обязательны", http.StatusBadRequest)
+			return
+		}
+
+		// Генерация уникального ID пользователя и создание объекта пользователя
+		newUser := User{
+			Username: requestData.Username,
+			Password: requestData.Password,
+			UniqueID: uuid.New().String(),
+			Class:    commander.UniqueID, // Устанавливаем class как UniqueID командира
+		}
+
+		// Регистрация пользователя в базе
+		err = newUser.Register(usersCollection)
 		if err != nil {
 			http.Error(w, "ошибка регистрации: "+err.Error(), http.StatusConflict)
 			return
@@ -67,6 +95,25 @@ func RegisterHandler(collection *mongo.Collection) http.HandlerFunc {
 
 		// Успешная регистрация
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"status":"пользователь успешно зарегистрирован"}`))
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "пользователь успешно зарегистрирован",
+			"class":  newUser.Class,
+		})
 	}
+}
+
+// findCommanderByAPIKey ищет командира по API-ключу
+func findCommanderByAPIKey(collection *mongo.Collection, apiKey string) (*Commander, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var commander Commander
+	err := collection.FindOne(ctx, bson.M{"api_key": apiKey}).Decode(&commander)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil // Командир не найден
+		}
+		return nil, err
+	}
+	return &commander, nil
 }

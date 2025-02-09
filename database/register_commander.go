@@ -24,7 +24,7 @@ func GenerateAPIKey() string {
 }
 
 // RegisterCommander регистрирует нового командира в базе данных
-func (c *Commander) RegisterCommander(collection *mongo.Collection) error {
+func RegisterCommander(collection *mongo.Collection, c *Commander) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -76,19 +76,20 @@ func RegisterCommanderHandler(collection *mongo.Collection) http.HandlerFunc {
 			return
 		}
 
-		// Регистрация командира
-		err = newCommander.RegisterCommander(collection)
+		// Регистрация командира через функцию
+		err = RegisterCommander(collection, &newCommander)
 		if err != nil {
 			http.Error(w, "ошибка регистрации: "+err.Error(), http.StatusConflict)
 			return
 		}
 
-		// Успешный ответ с API-ключом
+		// Успешный ответ с API-ключом и уникальным ID
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{
-			"status":  "командир успешно зарегистрирован",
-			"api_key": newCommander.APIKey,
+			"status":    "командир успешно зарегистрирован",
+			"unique_id": newCommander.UniqueID,
+			"api_key":   newCommander.APIKey,
 		})
 	}
 }

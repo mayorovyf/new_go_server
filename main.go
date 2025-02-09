@@ -30,7 +30,7 @@ func main() {
 	commandersCollection := databaseInstance.Collection("commanders")
 
 	// Установка маршрутов для пользователей
-	http.HandleFunc("/register", database.RegisterHandler(usersCollection))
+	http.HandleFunc("/register", database.RegisterUserHandler(usersCollection, commandersCollection))
 	http.HandleFunc("/login", database.LoginHandler(usersCollection))
 
 	// Установка маршрутов для командиров
